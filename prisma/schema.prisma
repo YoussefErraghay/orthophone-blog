@@ -1,0 +1,83 @@
+// Orthophonie blog — Prisma schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Article {
+  id           String     @id @default(uuid())
+  title        String
+  slug         String     @unique
+  excerpt      String     @db.Text
+  content      String     @db.LongText
+  category     String
+  isPremium    Boolean    @default(false)
+  viewsCount   Int        @default(0)
+  likesCount   Int        @default(0)
+  comments     Comment[]
+
+  // Uploaded media. Files live on disk under /uploads; the DB keeps the record.
+  coverImageId String?
+  coverImage   MediaFile? @relation("ArticleCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+  pdfId        String?
+  pdf          MediaFile? @relation("ArticlePdf", fields: [pdfId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([category])
+  @@index([createdAt])
+  @@index([coverImageId])
+  @@index([pdfId])
+}
+
+/// An uploaded file. Bytes are stored on disk (see lib/uploads.ts) because
+/// MariaDB's default max_allowed_packet (1MB here) makes BLOB storage of
+/// brochures impractical. Only metadata and the storage key live in the DB.
+model MediaFile {
+  id           String    @id @default(uuid())
+  /// Filename on disk, relative to the uploads directory. Never user-supplied.
+  storageKey   String    @unique
+  /// Original filename, shown to users on download.
+  originalName String
+  mimeType     String
+  size         Int
+  kind         MediaKind
+  createdAt    DateTime  @default(now())
+
+  coverFor     Article[] @relation("ArticleCover")
+  pdfFor       Article[] @relation("ArticlePdf")
+
+  @@index([kind])
+}
+
+enum MediaKind {
+  IMAGE
+  PDF
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  articleId  String
+  article    Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  authorName String
+  content    String   @db.Text
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([articleId])
+  @@index([isApproved])
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+}

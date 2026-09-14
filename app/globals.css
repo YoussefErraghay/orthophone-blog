@@ -1,26 +1,307 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Dark mode is driven by a `dark` class on <html>, set before paint by the
+   inline script in the root layout. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/*
+ * Palette: medical teal/sky over slate neutrals, mint for positive accents.
+ * Referenced as bg-[--c-surface], text-[--c-accent] etc.
+ *
+ * Note: destructive actions deliberately stay red — they are a semantic
+ * signal, not part of the brand palette.
+ */
+:root {
+  --c-bg: #fbfcfd;
+  --c-surface: #ffffff;
+  --c-muted: #f1f5f9;
+  --c-border: #e2e8f0;
+  --c-text: #0f172a;
+  --c-text-soft: #475569;
+  --c-text-faint: #64748b;
+
+  --c-accent: #0284c7;
+  --c-accent-deep: #0f172a;
+  --c-accent-bright: #06b6d4;
+  --c-accent-mint: #10b981;
+
+  /* Glass surfaces */
+  --c-glass: rgb(255 255 255 / 0.8);
+  --c-glass-border: rgb(226 232 240 / 0.9);
+  --c-glass-shadow: rgb(15 23 42 / 0.07);
+}
+
+.dark {
+  --c-bg: #080d16;
+  --c-surface: #0f1729;
+  --c-muted: #172033;
+  --c-border: #23304a;
+  --c-text: #f8fafc;
+  --c-text-soft: #cbd5e1;
+  --c-text-faint: #94a3b8;
+
+  --c-accent: #38bdf8;
+  --c-accent-deep: #e2e8f0;
+  --c-accent-bright: #22d3ee;
+  --c-accent-mint: #34d399;
+
+  --c-glass: rgb(15 23 41 / 0.72);
+  --c-glass-border: rgb(148 163 184 / 0.12);
+  --c-glass-shadow: rgb(0 0 0 / 0.45);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
+}
+
+/* Page-wide ambient wash: slate → sky → white. Decorative only. */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to bottom right, #f8fafc 0%, rgb(240 249 255 / 0.55) 45%, #ffffff 100%),
+    radial-gradient(56rem 28rem at 88% -6%, rgb(6 182 212 / 0.10), transparent 62%),
+    radial-gradient(40rem 22rem at 6% 8%, rgb(2 132 199 / 0.08), transparent 60%);
+}
+.dark .app-backdrop {
+  background:
+    linear-gradient(to bottom right, #080d16 0%, #0b1524 50%, #080d16 100%),
+    radial-gradient(56rem 28rem at 88% -6%, rgb(34 211 238 / 0.10), transparent 62%),
+    radial-gradient(40rem 22rem at 6% 8%, rgb(56 189 248 / 0.08), transparent 60%);
+}
+
+/* Shared page gutter. Wide grid with a comfortable responsive inset. */
+.container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 80rem; /* max-w-7xl */
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .container-page {
+    padding-inline: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .container-page {
+    padding-inline: 2rem;
+  }
+}
+
+/* ---------- Glassmorphism ---------- */
+
+.glass {
+  background: var(--c-glass);
+  border: 1px solid var(--c-glass-border);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 10px 40px -12px var(--c-glass-shadow);
+}
+
+/* Raised, "floating sheet" look for feature cards. */
+.card-3d {
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.06),
+    0 8px 16px -6px rgb(15 23 42 / 0.10),
+    0 26px 48px -18px rgb(2 132 199 / 0.24);
+}
+.dark .card-3d {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.5),
+    0 10px 20px -8px rgb(0 0 0 / 0.55),
+    0 30px 54px -20px rgb(56 189 248 / 0.20);
+}
+
+/* Perspective tilt for the hero preview card. */
+.tilt-card {
+  transform: perspective(1200px) rotateY(-7deg) rotateX(3deg);
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tilt-card:hover {
+  transform: perspective(1200px) rotateY(0deg) rotateX(0deg) translateY(-4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tilt-card,
+  .tilt-card:hover {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ---------- Entrance animation for cards ---------- */
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-enter {
+  animation: card-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+/* ---------- View transitions ---------- */
+
+:root {
+  --duration-exit: 150ms;
+  --duration-enter: 210ms;
+  --duration-move: 400ms;
+}
+
+::view-transition-group(site-header) {
+  animation: none;
+}
+
+::view-transition-group(.morph) {
+  animation-duration: 400ms;
+}
+::view-transition-image-pair(.morph) {
+  animation-name: via-blur;
+}
+@keyframes via-blur {
+  30% {
+    filter: blur(3px);
+  }
+}
+
+::view-transition-old(.nav-forward) {
+  --slide-offset: -60px;
+  animation:
+    150ms ease-in both fade reverse,
+    400ms ease-in-out both slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 60px;
+  animation:
+    210ms ease-out 150ms both fade,
+    400ms ease-in-out both slide;
+}
+
+::view-transition-old(.nav-back) {
+  --slide-offset: 60px;
+  animation:
+    150ms ease-in both fade reverse,
+    400ms ease-in-out both slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -60px;
+  animation:
+    210ms ease-out 150ms both fade,
+    400ms ease-in-out both slide;
+}
+
+@keyframes fade {
+  from {
+    filter: blur(3px);
+    opacity: 0;
+  }
+  to {
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide {
+  from {
+    translate: var(--slide-offset);
+  }
+  to {
+    translate: 0;
+  }
+}
+
+/* Respect people who ask for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .card-enter {
+    animation: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/*
+ * Article body styling. Written by hand rather than pulling in
+ * @tailwindcss/typography, since only a handful of elements are needed.
+ */
+.prose-ortho {
+  color: var(--c-text-soft);
+  line-height: 1.8;
+}
+
+.prose-ortho > * + * {
+  margin-top: 1.25em;
+}
+
+.prose-ortho h2 {
+  margin-top: 2em;
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.prose-ortho h3 {
+  margin-top: 1.75em;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.prose-ortho a {
+  color: var(--c-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-ortho strong {
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.prose-ortho ul,
+.prose-ortho ol {
+  padding-left: 1.5rem;
+}
+
+.prose-ortho ul {
+  list-style: disc;
+}
+
+.prose-ortho ol {
+  list-style: decimal;
+}
+
+.prose-ortho li + li {
+  margin-top: 0.5em;
+}
+
+.prose-ortho blockquote {
+  border-left: 4px solid var(--c-accent-bright);
+  padding-left: 1rem;
+  font-style: italic;
+}
+
+.prose-ortho code {
+  border-radius: 0.25rem;
+  background: var(--c-muted);
+  padding: 0.15em 0.4em;
+  font-size: 0.9em;
+}
+
+.prose-ortho img {
+  border-radius: 0.75rem;
 }
