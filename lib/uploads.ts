@@ -10,7 +10,17 @@ import path from "node:path";
  * what lets premium gating work later. The DB stores only the storage key.
  */
 
-export const UPLOAD_ROOT = path.join(process.cwd(), "uploads");
+/**
+ * Where uploaded bytes live.
+ *
+ * Defaults to `uploads/` next to the project for local development. In
+ * production set `UPLOADS_DIR` to a persistent volume mount (e.g. `/data`) —
+ * a container's own filesystem is wiped on every redeploy, so without this the
+ * files would silently disappear.
+ */
+export const UPLOAD_ROOT = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.join(process.cwd(), "uploads");
 
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
 export const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB
