@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
 }
 
 model Article {
@@ -15,14 +15,14 @@ model Article {
   title        String
   slug         String     @unique
   excerpt      String     @db.Text
-  content      String     @db.LongText
+  content      String     @db.Text
   category     String
   isPremium    Boolean    @default(false)
   viewsCount   Int        @default(0)
   likesCount   Int        @default(0)
   comments     Comment[]
 
-  // Uploaded media. Files live on disk under /uploads; the DB keeps the record.
+  // Uploaded media. Bytes live in object storage; the DB keeps the record.
   coverImageId String?
   coverImage   MediaFile? @relation("ArticleCover", fields: [coverImageId], references: [id], onDelete: SetNull)
   pdfId        String?
@@ -37,12 +37,11 @@ model Article {
   @@index([pdfId])
 }
 
-/// An uploaded file. Bytes are stored on disk (see lib/uploads.ts) because
-/// MariaDB's default max_allowed_packet (1MB here) makes BLOB storage of
-/// brochures impractical. Only metadata and the storage key live in the DB.
+/// An uploaded file. Bytes live in Supabase Storage (see lib/uploads.ts);
+/// only metadata and the storage key are kept here.
 model MediaFile {
   id           String    @id @default(uuid())
-  /// Filename on disk, relative to the uploads directory. Never user-supplied.
+  /// Object key in the storage bucket. Server-generated, never user-supplied.
   storageKey   String    @unique
   /// Original filename, shown to users on download.
   originalName String

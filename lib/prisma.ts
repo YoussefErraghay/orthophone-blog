@@ -1,9 +1,9 @@
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/app/generated/prisma/client";
 
 /**
  * Prisma 7 connects through a driver adapter rather than a bundled engine, so
- * the MySQL/MariaDB adapter is constructed here from DATABASE_URL.
+ * the Postgres adapter is constructed here from DATABASE_URL.
  *
  * The client is created **lazily**. Next.js imports every route module during
  * its build-time page-data collection pass, so constructing the client at
@@ -27,7 +27,7 @@ function createClient(): Client {
   }
 
   return new PrismaClient({
-    adapter: new PrismaMariaDb(connectionString),
+    adapter: new PrismaPg({ connectionString }),
   });
 }
 

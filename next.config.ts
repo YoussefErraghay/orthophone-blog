@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // The generated Prisma client and the MariaDB driver use Node.js built-ins and
+  // The generated Prisma client and the Postgres driver use Node.js built-ins and
   // must not be bundled by Turbopack for Server Components.
-  serverExternalPackages: ["@prisma/adapter-mariadb", "mariadb"],
+  serverExternalPackages: ["@prisma/adapter-pg", "pg"],
 
   experimental: {
     serverActions: {

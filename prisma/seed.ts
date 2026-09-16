@@ -1,6 +1,6 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../app/generated/prisma/client";
 
 const connectionString = process.env.DATABASE_URL;
@@ -9,7 +9,7 @@ if (!connectionString) {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaMariaDb(connectionString),
+  adapter: new PrismaPg({ connectionString }),
 });
 
 const ARTICLES = [

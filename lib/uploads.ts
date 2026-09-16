@@ -1,26 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { MEDIA_BUCKET, getStorage } from "@/lib/storage";
 
 /**
- * Disk-backed file storage.
+ * Object-storage backed file handling (Supabase Storage).
  *
- * Files are written to `uploads/` at the project root — outside `public/`, so
- * nothing is served without going through the media route handler, which is
- * what lets premium gating work later. The DB stores only the storage key.
+ * Bytes never touch the local filesystem: serverless hosts give each request a
+ * read-only, throwaway disk, so anything written there disappears on the next
+ * deploy. The bucket is private — downloads are proxied by `/media/[id]`,
+ * which is also where a future premium gate would sit.
  */
-
-/**
- * Where uploaded bytes live.
- *
- * Defaults to `uploads/` next to the project for local development. In
- * production set `UPLOADS_DIR` to a persistent volume mount (e.g. `/data`) —
- * a container's own filesystem is wiped on every redeploy, so without this the
- * files would silently disappear.
- */
-export const UPLOAD_ROOT = process.env.UPLOADS_DIR
-  ? path.resolve(process.env.UPLOADS_DIR)
-  : path.join(process.cwd(), "uploads");
 
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
 export const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB
@@ -76,7 +64,7 @@ function sniff(bytes: Uint8Array): string | null {
  * Validate and persist one uploaded file.
  *
  * Both the declared MIME type and the actual leading bytes must agree, and the
- * generated name never derives from user input.
+ * generated object key never derives from user input.
  */
 export async function storeUpload(
   file: File,
@@ -110,14 +98,23 @@ export async function storeUpload(
     );
   }
 
-  const storageKey = `${randomUUID()}${allowed[detected]}`;
+  // Prefix by kind so the bucket stays browsable; the name itself is a UUID.
+  const storageKey = `${kind.toLowerCase()}/${randomUUID()}${allowed[detected]}`;
 
-  await mkdir(UPLOAD_ROOT, { recursive: true });
-  await writeFile(path.join(UPLOAD_ROOT, storageKey), buffer);
+  const { error } = await getStorage()
+    .storage.from(MEDIA_BUCKET)
+    .upload(storageKey, buffer, {
+      contentType: detected,
+      upsert: false,
+    });
+
+  if (error) {
+    throw new UploadError(`Le téléversement a échoué : ${error.message}`);
+  }
 
   return {
     storageKey,
-    // Keep the original name for the download filename only; never for paths.
+    // Keep the original name for the download filename only; never for keys.
     originalName: file.name.slice(0, 200) || storageKey,
     mimeType: detected,
     size: buffer.byteLength,
@@ -125,22 +122,21 @@ export async function storeUpload(
   };
 }
 
-/** Resolve a storage key to an absolute path, refusing anything outside the root. */
-export function resolveUploadPath(storageKey: string) {
-  const resolved = path.resolve(UPLOAD_ROOT, storageKey);
-  const root = path.resolve(UPLOAD_ROOT);
+/** Fetch an object's bytes for the media route to stream back. */
+export async function readUpload(storageKey: string) {
+  const { data, error } = await getStorage()
+    .storage.from(MEDIA_BUCKET)
+    .download(storageKey);
 
-  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
-    throw new UploadError("Chemin de fichier invalide.");
-  }
-  return resolved;
+  if (error || !data) return null;
+  return data;
 }
 
-/** Best-effort cleanup; a missing file is not an error worth surfacing. */
+/** Best-effort cleanup; a missing object is not an error worth surfacing. */
 export async function deleteUpload(storageKey: string) {
   try {
-    await unlink(resolveUploadPath(storageKey));
+    await getStorage().storage.from(MEDIA_BUCKET).remove([storageKey]);
   } catch {
-    // Already gone.
+    // Already gone, or storage unreachable — the DB row is what matters.
   }
 }

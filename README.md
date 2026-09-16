@@ -9,7 +9,7 @@ Lecture publique sans compte. Seul l'espace praticien demande une connexion.
 
 - **Next.js 16** (App Router, Turbopack) + React 19
 - **TypeScript**, **Tailwind CSS v4** (configuration CSS-first, pas de `tailwind.config.js`)
-- **Prisma 7** + **MySQL/MariaDB**, via le driver adapter `@prisma/adapter-mariadb`
+- **Prisma 7** + **PostgreSQL**, via le driver adapter `@prisma/adapter-pg`
 - `lucide-react`, `clsx`, `tailwind-merge`
 - Markdown (`marked`) assaini par `isomorphic-dompurify`
 
@@ -30,27 +30,26 @@ npm run dev
 
 | Variable | Rôle |
 | --- | --- |
-| `DATABASE_URL` | `mysql://user:pass@localhost:3306/orthophonie` |
+| `DATABASE_URL` | `postgresql://user:pass@host:5432/postgres` |
 | `SESSION_SECRET` | Clé de signature du cookie d'admin |
 | `SEED_ADMIN_EMAIL` | Email du compte admin initial |
 | `SEED_ADMIN_PASSWORD` | Mot de passe initial (10 caractères minimum) |
 
-La base doit exister avant la migration, en **utf8mb4** pour les accents :
+En local, une base Postgres suffit :
 
 ```sql
-CREATE DATABASE orthophonie CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE orthophonie;
 ```
 
 ## Fichiers (images & PDF)
 
-Les fichiers sont **téléversés depuis l'admin**, stockés sur le disque dans
-`uploads/` (ignoré par git), et servis par la route `/media/[id]`. La base ne
-contient que les métadonnées (modèle `MediaFile` : nom d'origine, type MIME,
-taille, clé de stockage).
+Les fichiers sont **téléversés depuis l'admin** vers un bucket privé
+(Supabase Storage) et servis par la route `/media/[id]`. La base ne contient que
+les métadonnées (modèle `MediaFile` : nom d'origine, type MIME, taille, clé de
+stockage).
 
-Pourquoi pas des BLOB en base : `max_allowed_packet` vaut 1 Mo par défaut sur
-MariaDB, ce qui rend le stockage d'une brochure impraticable sans reconfigurer
-MySQL, et alourdirait chaque sauvegarde.
+Pourquoi pas le disque : sur un hôte serverless il est en lecture seule et
+éphémère, donc tout fichier écrit disparaît au redéploiement suivant.
 
 Limites et contrôles :
 
@@ -60,12 +59,12 @@ Limites et contrôles :
 | Brochure | 10 Mo | PDF |
 
 Chaque fichier est vérifié par ses **octets d'en-tête** (magic numbers), pas
-seulement par son extension : un exécutable renommé en `.png` est refusé. Le nom
-sur le disque est un UUID généré par le serveur, jamais le nom fourni par
+seulement par son extension : un exécutable renommé en `.png` est refusé. La clé
+de stockage est un UUID généré par le serveur, jamais le nom fourni par
 l'utilisateur. Supprimer un article supprime aussi ses fichiers.
 
-Les fichiers vivent hors de `public/` : tout passe par `/media/[id]`, ce qui
-laisse la porte ouverte à un contrôle d'accès premium plus tard.
+Le bucket est privé : tout passe par `/media/[id]`, ce qui laisse la porte
+ouverte à un contrôle d'accès premium plus tard.
 
 ## Interface
 
@@ -96,13 +95,12 @@ app/
   admin/
     login/           Connexion (hors du shell authentifié)
     (dashboard)/     Zone protégée : stats, articles, modération
-  media/[id]/        Service des fichiers téléversés
+  media/[id]/        Sert les fichiers depuis le bucket
   generated/prisma/  Client Prisma généré (non versionné)
 actions/             Server Actions (articles, commentaires, auth)
 components/          Composants partagés + composants admin
-lib/                 Prisma, session, auth, markdown, uploads, utilitaires
+lib/                 Prisma, storage, session, auth, markdown, utilitaires
 prisma/              Schéma, migrations, script de seed
-uploads/             Fichiers téléversés (non versionné)
 proxy.ts             Protection des routes /admin
 ```
 
@@ -129,6 +127,6 @@ premium reste lisible. Le branchement d'un paiement reste à faire.
 
 - [ ] Changer le mot de passe admin initial
 - [ ] Définir `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` si plusieurs instances
-- [ ] Sauvegarder le dossier `uploads/` avec la base (les deux vont ensemble)
+- [ ] Sauvegarder le bucket Supabase avec la base (les deux vont ensemble)
 - [ ] Ajouter une limitation de débit sur les commentaires, les likes et les uploads
 - [ ] Compléter les coordonnées du cabinet dans `app/(public)/about/page.tsx`
