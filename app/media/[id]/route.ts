@@ -36,13 +36,22 @@ export async function GET(
 
   // `download=1` forces a save dialog; otherwise PDFs open in the viewer.
   const asAttachment = request.nextUrl.searchParams.get("download") === "1";
-  const safeName = media.originalName.replace(/["\r\n]/g, "");
+
+  // HTTP headers are ByteStrings: a non-ASCII character (the French apostrophe
+  // in "Capture d'écran.png", say) throws when the header is constructed.
+  // Send an ASCII-only fallback plus the RFC 5987 encoded form, which browsers
+  // prefer and which round-trips accents correctly.
+  const asciiName =
+    media.originalName.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "") ||
+    "fichier";
+  const encodedName = encodeURIComponent(media.originalName);
+  const disposition = asAttachment ? "attachment" : "inline";
 
   return new Response(blob.stream(), {
     headers: {
       "Content-Type": media.mimeType,
       "Content-Length": String(media.size),
-      "Content-Disposition": `${asAttachment ? "attachment" : "inline"}; filename="${safeName}"`,
+      "Content-Disposition": `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodedName}`,
       // Storage keys are immutable, so the bytes at this id never change.
       "Cache-Control": "public, max-age=31536000, immutable",
       "X-Content-Type-Options": "nosniff",
