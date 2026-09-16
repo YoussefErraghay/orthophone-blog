@@ -7,9 +7,11 @@ const nextConfig: NextConfig = {
 
   experimental: {
     serverActions: {
-      // Cover image (4MB) + PDF (10MB) can be submitted in one form, plus
-      // multipart overhead. Keep headroom above the sum of both limits.
-      bodySizeLimit: "16mb",
+      // Headroom above the app's own upload ceiling (lib/uploads.ts) plus
+      // multipart overhead. Note the host caps this independently — Vercel's
+      // free tier rejects bodies over ~4.5MB with a 413 before this applies —
+      // so raising it alone does not allow larger uploads.
+      bodySizeLimit: `${Number(process.env.MAX_UPLOAD_MB ?? 4) + 2}mb`,
     },
   },
 

@@ -10,8 +10,19 @@ import { MEDIA_BUCKET, getStorage } from "@/lib/storage";
  * which is also where a future premium gate would sit.
  */
 
-export const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
-export const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB
+/**
+ * Upload ceilings.
+ *
+ * The real constraint is the host, not us: a Server Action request body is
+ * capped by the platform (4.5MB on Vercel's free tier), and exceeding it fails
+ * with a 413 before our code ever runs. So the defaults stay under that, and
+ * MAX_UPLOAD_MB lets a deployment raise them without a code change once the
+ * platform allows a larger body.
+ */
+const CEILING_MB = Number(process.env.MAX_UPLOAD_MB ?? 4);
+
+export const MAX_IMAGE_BYTES = Math.min(4, CEILING_MB) * 1024 * 1024;
+export const MAX_PDF_BYTES = CEILING_MB * 1024 * 1024;
 
 const IMAGE_TYPES: Record<string, string> = {
   "image/jpeg": ".jpg",
