@@ -31,8 +31,10 @@ async function ArticleList({
       ...(query
         ? {
             OR: [
-              { title: { contains: query } },
-              { excerpt: { contains: query } },
+              // Postgres `contains` is case-sensitive, unlike MySQL's default
+              // collation — without this, "oralité" would miss "Oralité".
+              { title: { contains: query, mode: "insensitive" } },
+              { excerpt: { contains: query, mode: "insensitive" } },
             ],
           }
         : {}),
